@@ -1,0 +1,241 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
+    // Further reading:
+    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
+    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
+    url      = env("DATABASE_URL")
+}
+
+// ?Necessary for Next auth
+model Account {
+    id                String  @id @default(cuid())
+    userId            String
+    type              String
+    provider          String
+    providerAccountId String
+    refresh_token     String? @db.Text
+    access_token      String? @db.Text
+    expires_at        Int?
+    token_type        String?
+    scope             String?
+    id_token          String? @db.Text
+    session_state     String?
+    user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([provider, providerAccountId])
+}
+
+model User {
+    id                String        @id @default(cuid())
+    name              String?
+    email             String        @unique
+    password          String
+    emailVerified     DateTime?
+    image             String?
+    roleId            String?
+    role              Role?         @relation(fields: [roleId], references: [id])
+    accounts          Account[]
+    organization      Organization? @relation(fields: [organizationId], references: [id])
+    organizationId    String?
+    ownedOrganization Organization? @relation("OrganizationOwner")
+    employeeId        String?       @unique
+    employeeRecord    Employee?     @relation(fields: [employeeId], references: [employeeId])
+    createdAt         DateTime      @default(now())
+    updatedAt         DateTime      @updatedAt
+
+    @@index([email])
+}
+
+model Organization {
+    id           String        @id @default(cuid())
+    name         String
+    slug         String        @unique
+    description  String?       @db.Text
+    maxSize      Int
+    owner        User          @relation("OrganizationOwner", fields: [ownerId], references: [id])
+    ownerId      String        @unique
+    subscription Subscription?
+    roles        Role[]
+    members      User[]
+    notices      Notice[]
+    departments  Department[]
+    employees    Employee[]
+    settings     Setting[]
+    createdAt    DateTime      @default(now())
+    updatedAt    DateTime      @updatedAt
+}
+
+model Module {
+    id          String         @id @default(cuid())
+    name        String         @unique
+    actions     Action[]
+    description String?        @db.Text
+    features    String[]
+    price       Float
+    dependsOn   Module[]       @relation("ModuleDependencies")
+    dependedBy  Module[]       @relation("ModuleDependencies")
+    subscribers Subscription[]
+}
+
+model Action {
+    id       String   @id @default(cuid())
+    name     String   @unique
+    routes   String[]
+    moduleId String
+    module   Module   @relation(fields: [moduleId], references: [id])
+    roles    Role[]
+}
+
+model Role {
+    id             String       @id @default(cuid())
+    name           String
+    description    String?      @db.Text
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    organizationId String
+    users          User[]
+    permissions    Action[]
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    @@unique([organizationId, name])
+}
+
+model Subscription {
+    id                 String       @id @default(cuid())
+    organization       Organization @relation(fields: [organizationId], references: [id])
+    organizationId     String       @unique
+    modules            Module[]
+    paymentCompleted   DateTime?
+    startingDate       DateTime
+    endDate            DateTime
+    isAutoRenewEnabled Boolean      @default(true)
+    durationInMonths   Int          @default(1)
+    createdAt          DateTime     @default(now())
+    updatedAt          DateTime     @updatedAt
+}
+
+model Notice {
+    id             String       @id @default(cuid())
+    title          String
+    description    String
+    tags           String[]
+    isPublic       Boolean      @default(false)
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    organizationId String
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+}
+
+model Department {
+    id             String       @id @default(cuid())
+    name           String
+    description    String?
+    employees      Employee[]
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    organizationId String
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    @@unique([organizationId, name])
+}
+
+model Employee {
+    id                   String             @id @default(cuid())
+    employeeId           String             @unique
+    name                 String?
+    email                String             @unique
+    phone                String?
+    presentAddress       String?
+    permanentAddress     String?
+    idVerificationDoc    String?
+    idVerificationStatus String?            @default("pending")
+    jobTitle             String
+    department           Department         @relation(fields: [departmentId], references: [id])
+    departmentId         String
+    organization         Organization       @relation(fields: [organizationId], references: [id])
+    organizationId       String
+    user                 User?
+    payrollRecords       PayrollRecord[]
+    attendanceRecords    AttendanceRecord[]
+    leaveApplications    LeaveApplication[]
+    createdAt            DateTime           @default(now())
+    updatedAt            DateTime           @updatedAt
+}
+
+model AttendanceRecord {
+    id           String    @id @default(cuid())
+    employee     Employee  @relation(fields: [employeeId], references: [id])
+    employeeId   String
+    date         DateTime  @default(now())
+    checkinTime  DateTime?
+    checkoutTime DateTime?
+    status       String    @default("absent")
+    remarks      String?
+    createdAt    DateTime  @default(now())
+    updatedAt    DateTime  @updatedAt
+
+    @@unique([employeeId, date])
+}
+
+model LeaveApplication {
+    id         String   @id @default(cuid())
+    employee   Employee @relation(fields: [employeeId], references: [id])
+    employeeId String
+    leaveType  String
+    startDate  DateTime
+    endDate    DateTime
+    reason     String   @db.Text
+    status     String   @default("pending")
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+}
+
+model PayrollPeriod {
+    id             String          @id @default(cuid())
+    startDate      DateTime
+    endDate        DateTime
+    payrollRecords PayrollRecord[]
+    createdAt      DateTime        @default(now())
+    updatedAt      DateTime        @updatedAt
+}
+
+model PayrollRecord {
+    id              String        @id @default(cuid())
+    employee        Employee      @relation(fields: [employeeId], references: [id])
+    employeeId      String
+    payrollPeriod   PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+    payrollPeriodId String
+    baseSalary      Float
+    overtime        Float
+    deductions      Deduction[]
+    netPay          Float
+    paidOn          DateTime?
+    createdAt       DateTime      @default(now())
+    updatedAt       DateTime      @updatedAt
+}
+
+model Deduction {
+    id              String        @id @default(cuid())
+    name            String
+    amount          Float
+    payrollRecord   PayrollRecord @relation(fields: [payrollRecordId], references: [id])
+    payrollRecordId String
+    createdAt       DateTime      @default(now())
+    updatedAt       DateTime      @updatedAt
+}
+
+model Setting {
+    id             String       @id @default(cuid())
+    key            String       @unique
+    value          String
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    organizationId String
+}
