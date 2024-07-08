@@ -1,3 +1,5 @@
+//dafualt landiang page
+
 import { Contact } from "@/components/www/contact";
 import { Faq } from "@/components/www/faq";
 import { Features } from "@/components/www/features";

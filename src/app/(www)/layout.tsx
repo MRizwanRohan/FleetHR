@@ -1,3 +1,4 @@
+//layout design
 import { Header } from "@/components/www/header";
 import { Footer } from "@/components/www/footer";
 
