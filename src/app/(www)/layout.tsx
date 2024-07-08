@@ -1,5 +1,5 @@
 //layout design
-import { Header } from "@/components/www/header";
+import { Header } from "@/components/www/header";//importing header
 import { Footer } from "@/components/www/footer";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
